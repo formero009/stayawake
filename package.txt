@@ -1,0 +1,1 @@
+pyinstaller -D -w --icon=dram.ico stayAwake.py

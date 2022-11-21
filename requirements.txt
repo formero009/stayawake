@@ -1,0 +1,4 @@
+pyautogui~=0.9.53
+pyqt5~=5.15.7
+pywin32
+pywin32-ctypes~=0.2.0
