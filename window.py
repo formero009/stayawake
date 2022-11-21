@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! python
 # encoding: utf-8
 
 '''
@@ -10,120 +10,115 @@
   @desc:
 '''
 
-import keyboard
-from PyQt5.QtCore import QObject, Qt
-from PyQt5.QtGui import QIcon, QFont, QPixmap, QPainter
-from PyQt5.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QAction, QSystemTrayIcon, \
-	QMenu, QLabel
+from PyQt5.QtCore import QObject, Qt, QSize, QRect
+from PyQt5.QtGui import QIcon, QFont, QCursor, QPainter, QPixmap
+from PyQt5.QtWidgets import QWidget, QPushButton, QAction, QSystemTrayIcon, \
+	QMenu, QLabel, QDesktopWidget, QVBoxLayout, QHBoxLayout, QMessageBox, QToolTip
 
 import global_vals as gv
 from subthread import StayAwakeThread
+
 
 class MainWindow(QWidget, QObject):
 	def __init__(self):
 
 		self.thread = StayAwakeThread()
+		self.thread.signal.connect(self.updateText)
 		super().__init__()
+		self.init_ui()
+		self.show()
 
-	def paintEvent(self, event):
-		painter = QPainter(self)
-		pixmap = QPixmap("./bg.jpg")
-		painter.drawPixmap(self.rect(), pixmap)
+	# 背景图
+	# def paintEvent(self, event):
+	# 	painter = QPainter(self)
+	# 	pixmap = QPixmap("./bg.jpg")
+	# 	painter.drawPixmap(self.rect(), pixmap)
 
 	def init_ui(self):
-		self.setWindowFlags(Qt.WindowStaysOnTopHint)
-		self.setWindowTitle('Stay Awake')
-		self.setWindowIcon(QIcon('dram.ico'))
-		self.setGeometry(600, 300, 540, 315)
-		self.setFixedSize(self.size())
-		self.trayIconMenu = QMenu(self)
-		self.openAction = QAction("打开", self)
-		self.openAction.triggered.connect(self.openup)
-		self.trayIconMenu.addAction(self.openAction)
-		self.quitAction = QAction("退出", self)
-		self.quitAction.triggered.connect(self.quit)
-		self.trayIconMenu.addAction(self.quitAction)
-		self.trayIcon = QSystemTrayIcon(self)
-		self.trayIcon.setContextMenu(self.trayIconMenu)
-		self.trayIcon.setIcon(QIcon("dram.ico"))
-		self.trayIcon.activated.connect(self.iconActivated)
-		self.trayIcon.setToolTip("不忘初心！萌萌加油！")
-		# self.trayIcon.showMessage(u"提示", u"程序后台待命中！")
-		self.trayIcon.show()
+		# 初始化窗口
+		self.setGeometry(0, 0, 130, 50)
+		self.setCursor(QCursor(Qt.PointingHandCursor))
+		# 初始化到屏幕中间
+		screen = QDesktopWidget().screenGeometry()
+		size = self.geometry()
+		screen = QDesktopWidget().screenGeometry()
+		self.move(int((screen.width() - size.width()) / 2), int((screen.height() - size.height()) / 2))
+		self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 
-		gv.timeText = QLabel(self)
-		gv.timeText.setText('<font color=black size=20 >点击开始，程序将于{0}秒后运行...'.format(gv.static_idle_time))
+		# 右键菜单
+		self.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.customContextMenuRequested.connect(self.rightMenuShow)
 
-		start_text = QLabel(
-			'<font color=black weight=300 size=15 >按下 <font color=red size=15 > Ctrl+Alt+F9 <font color=black size=15 >开始',
-			self)
+		# 初始化提示文字
+		self.infoText = QLabel(self)
+		self.infoText.setAlignment(Qt.AlignCenter)
+		self.infoText.setObjectName("label")
+		self.infoText.setText("程序{0}秒后运行".format(gv.static_idle_time))
+		self.infoText.setFont(QFont("Microsoft YaHei", 13, QFont.Bold))
+		self.setStyleSheet("QLabel{font-weight:bold;font-family:Roman times;")
 
-		stop_text = QLabel(
-			'<font color=black size=15 >按下 <font color=red size=15 > Ctrl+Alt+F10 <font color=black size=15 >暂停',
-			self)
-
-		self.setStyleSheet("QLabel{font-weight:bold;font-family:Roman times;background:white; background-color:rgba(255,255,255,0.4);}")
-
+		# 设置开始按钮
 		self.btn = QPushButton('开始', self)
-		# 设置按钮大小
-		self.btn.setFixedSize(100, 50)
+		self.btn.setToolTip('不忘初心，萌萌加油')
+		self.btn.setFixedSize(80, 30)
 		self.btn.setStyleSheet("QPushButton{font-weight:bold;font-family:Roman times;background: white;}"
 							   "QPushButton:hover{background:rgba(0,129,204,1); font-weight:bold; color:white;}")
+		self.btn.setFont(QFont("Microsoft YaHei", 12, QFont.Bold))
 		self.btn.setCursor(Qt.PointingHandCursor)
-		self.btn.setFont(QFont("Roman times", 15, QFont.Bold))
 		self.btn.clicked.connect(self.startThread)
 		hbox = QHBoxLayout()
-		hbox.addStretch(1)
 		hbox.addWidget(self.btn)
-		hbox.addStretch(1)
 		vbox = QVBoxLayout()
-		vbox.addWidget(gv.timeText)
 		vbox.addStretch(1)
-		vbox.addWidget(start_text)
+		vbox.addWidget(self.infoText)
 		vbox.addStretch(1)
-		vbox.addWidget(stop_text)
-		vbox.addStretch(3)
 		vbox.addLayout(hbox)
 		self.setLayout(vbox)
-		keyboard.add_hotkey("ctrl+alt+f9", lambda: self.startWithHotkey())
-		keyboard.add_hotkey("ctrl+alt+f10", lambda: self.stopWithHotkey())
 
-	def iconActivated(self, reason):
-		if reason == QSystemTrayIcon.DoubleClick and self.isHidden():
-			self.showNormal()
-		elif reason == QSystemTrayIcon.DoubleClick and not self.isHidden():
-			self.hide()
+	def rightMenuShow(self):
+		try:
+			self.contextMenu = QMenu()
+			self.contextMenu.addAction(QAction("彻底退出", self, triggered=self.actionHandler))
+			self.contextMenu.popup(QCursor.pos())
+			self.contextMenu.setStyleSheet("QMenu{background:rgb(80,127,128);color:rgb(255,255,255);font-size:15px;font-weight:bold;width:100px;}")
+			self.contextMenu.show()
+		except Exception as e:
+			print(e)
 
-	def openup(self, event):
-		self.showNormal()
+	def actionHandler(self):
+		button = QMessageBox.question(self, "提示", "确定彻底退出？", QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+		if button == QMessageBox.Yes:
+			self.thread.stop()
+			self.close()
+			exit(0)
+
+	# 重写鼠标移动事件
+	def mousePressEvent(self, event):
+		if event.button() == Qt.LeftButton:
+			self.m_flag = True
+			self.m_Position = event.globalPos() - self.pos()  # 获取鼠标相对窗口的位置
+			event.accept()
+			self.setCursor(QCursor(Qt.OpenHandCursor))  # 更改鼠标图标
+
+	def mouseMoveEvent(self, QMouseEvent):
+		if Qt.LeftButton and self.m_flag:
+			self.move(QMouseEvent.globalPos() - self.m_Position)  # 更改窗口位置
+			QMouseEvent.accept()
+
+	def mouseReleaseEvent(self, QMouseEvent):
+		self.m_flag = False
+		self.setCursor(QCursor(Qt.PointingHandCursor))
 
 	def quit(self):
 		exit(0)
 
-	# 重写关闭事件， 修改为最小化到托盘
-	def closeEvent(self, event):
-		event.ignore()
-		self.hide()
-
 	def startThread(self):
 		print('start')
-		gv.timeText.setText('<font color=green size=20 > 运行中...')
 		gv.running = True
+		self.infoText.setText("运行中...")
 		self.btn.setDisabled(True)
 		self.thread.start()
 
-	def startWithHotkey(self):
-		if not gv.running:
-			self.startThread()
-
-	def stopWithHotkey(self):
-		if gv.running:
-			self.killThread()
-
-	def killThread(self):
-		gv.running = False
+	def updateText(self):
+		self.infoText.setText("程序{0}秒后运行".format(gv.static_idle_time))
 		self.btn.setDisabled(False)
-		self.thread.quit()
-		print('thread killed')
-		gv.timeText.setText('<font color=black size=15 >点击开始，程序将于{0}秒后运行'.format(gv.static_idle_time))
-		print('stoped with hotkey')

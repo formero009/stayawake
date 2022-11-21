@@ -11,5 +11,4 @@
 '''
 
 static_idle_time = 10
-timeText = None
 running = False

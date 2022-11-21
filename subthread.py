@@ -14,12 +14,13 @@ import random
 import time
 
 import pyautogui
-from PyQt5.QtCore import QThread
+from PyQt5.QtCore import QThread, pyqtSignal
 
 import global_vals as gv
 
-
 class StayAwakeThread(QThread):
+	# 信号
+	signal = pyqtSignal()
 	def __init__(self):
 		super().__init__()
 
@@ -36,9 +37,10 @@ class StayAwakeThread(QThread):
 				x = random.randint(50, 1500)
 				y = random.randint(50, 500)
 				pyautogui.moveTo(x, y, duration=0.3)
-				time.sleep(0.5)
+				time.sleep(2)
 				# 按键
 				pyautogui.press('shift')
 			except Exception as e:
-				print('异常：{}'.format(e))
-				continue
+				gv.running = False
+				self.signal.emit()
+				print('stopped')

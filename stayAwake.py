@@ -24,8 +24,6 @@ class Main:
 
 	def initWindow(self):
 		self.main_window = MainWindow()
-		self.main_window.init_ui()
-		self.main_window.show()
 
 if __name__ == '__main__':
 	try:
@@ -44,4 +42,3 @@ if __name__ == '__main__':
 			mw = Main()
 	except Exception as e:
 		print('程序启动异常：{}'.format(e))
-
